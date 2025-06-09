@@ -1,4 +1,4 @@
-// server.js --- V2 with Dynamic Languages
+// server.js --- V2.1 with Text Log Messaging
 
 const http = require('http');
 const fs = require('fs');
@@ -9,7 +9,7 @@ const { TranslationServiceClient } = require('@google-cloud/translate');
 const { TextToSpeechClient } = require('@google-cloud/text-to-speech');
 
 const PORT = 8080;
-const PROJECT_ID = 'default-450413'; // Your Project ID remains constant
+const PROJECT_ID = 'default-450413';
 const API_SAMPLE_RATE = 16000;
 
 const speechClient = new SpeechClient();
@@ -17,7 +17,6 @@ const translateClient = new TranslationServiceClient();
 const ttsClient = new TextToSpeechClient();
 
 const server = http.createServer((req, res) => {
-    // This part is unchanged...
     let filePath;
     if (req.url === '/' || req.url === '/index.html') filePath = path.join(__dirname, 'index.html');
     else if (req.url === '/audio-processor.js') filePath = path.join(__dirname, 'audio-processor.js');
@@ -39,14 +38,13 @@ wss.on('connection', (ws) => {
 
     let audioBuffer = [];
     let isProcessing = false;
-    // --- NEW: Language variables are now per-connection ---
-    let sourceLanguage = 'de-DE'; // Default
-    let targetLanguage = 'en-US'; // Default
+    let sourceLanguage = 'de-DE';
+    let targetLanguage = 'en-US';
 
     const processAudioBatch = async () => {
-        if (isProcessing || audioBuffer.length < 1) {
+        if (isProcessing || audioBuffer.length < 20) {
             if(isProcessing) console.log('[SERVER-BATCH] Already processing a batch.');
-            audioBuffer = []; // Clear buffer if it's too short
+            audioBuffer = [];
             return;
         }
 
@@ -55,13 +53,8 @@ wss.on('connection', (ws) => {
         audioBuffer = [];
 
         try {
-            // --- MODIFIED: Use the connection-specific language variables ---
             const request = {
-                config: {
-                    encoding: 'LINEAR16',
-                    sampleRateHertz: API_SAMPLE_RATE,
-                    languageCode: sourceLanguage, // Use dynamic variable
-                },
+                config: { encoding: 'LINEAR16', sampleRateHertz: API_SAMPLE_RATE, languageCode: sourceLanguage },
                 audio: { content: completeBuffer.toString('base64') },
             };
             
@@ -74,18 +67,24 @@ wss.on('connection', (ws) => {
                 const [translateResponse] = await translateClient.translateText({
                     parent: `projects/${PROJECT_ID}/locations/global`,
                     contents: [transcription], mimeType: 'text/plain',
-                    sourceLanguageCode: sourceLanguage.split('-')[0], // Use dynamic variable
-                    targetLanguageCode: targetLanguage.split('-')[0], // Use dynamic variable
+                    sourceLanguageCode: sourceLanguage.split('-')[0],
+                    targetLanguageCode: targetLanguage.split('-')[0],
                 });
                 const translation = translateResponse.translations[0].translatedText;
                 console.log(`[SERVER] Translation (${targetLanguage}): "${translation}"`);
 
+                // --- NEW: Send the text pair back to the client ---
+                ws.send(JSON.stringify({
+                    event: 'transcript-pair',
+                    sourceText: transcription,
+                    translatedText: translation
+                }));
+
                 const [ttsResponse] = await ttsClient.synthesizeSpeech({
                     input: { text: translation },
-                    voice: { languageCode: targetLanguage, ssmlGender: 'NEUTRAL' }, // Use dynamic variable
+                    voice: { languageCode: targetLanguage, ssmlGender: 'NEUTRAL' },
                     audioConfig: { audioEncoding: 'MP3' },
                 });
-
                 ws.send(JSON.stringify({ event: 'audioContent', data: ttsResponse.audioContent.toString('base64') }));
             }
         } catch (err) {
@@ -97,9 +96,7 @@ wss.on('connection', (ws) => {
 
     ws.on('message', (message) => {
         const msg = JSON.parse(message);
-        
         if (msg.event === 'client-ready') {
-            // --- MODIFIED: Receive and store languages for this session ---
             sourceLanguage = msg.sourceLanguage;
             targetLanguage = msg.targetLanguage;
             console.log(`[SERVER] Client ready. Source: ${sourceLanguage}, Target: ${targetLanguage}`);
@@ -115,7 +112,6 @@ wss.on('connection', (ws) => {
         console.log('[SERVER] Client disconnected.');
         if (audioBuffer.length > 0) processAudioBatch();
     });
-
     ws.on('error', (err) => console.error('[SERVER] WebSocket Error:', err));
 });
 

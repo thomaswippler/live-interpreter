@@ -2,137 +2,57 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Live Interpreter V2</title>
+    <title>Live Interpreter V2.2</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #4285F4; /* Google Blue */
-            --primary-dark: #357ae8;
-            --light-gray: #f1f3f4;
-            --gray: #bdc1c6;
-            --dark-gray: #5f6368;
-            --text-color: #202124;
+            --primary-color: #4285F4; --primary-dark: #357ae8; --light-gray: #f1f3f4;
+            --gray: #bdc1c6; --dark-gray: #5f6368; --text-color: #202124;
             --card-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
         }
-
         body {
-            font-family: 'Roboto', sans-serif;
-            background-color: var(--light-gray);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            box-sizing: border-box;
+            font-family: 'Roboto', sans-serif; background-color: var(--light-gray); color: var(--text-color);
+            margin: 0; padding: 20px; display: flex; justify-content: center; align-items: flex-start;
+            min-height: 100vh; box-sizing: border-box;
         }
-
         .interpreter-container {
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: var(--card-shadow);
-            padding: 24px 32px;
-            width: 100%;
-            max-width: 500px;
-            box-sizing: border-box;
-            text-align: center;
+            background-color: white; border-radius: 12px; box-shadow: var(--card-shadow);
+            padding: 24px 32px; width: 100%; max-width: 500px; box-sizing: border-box; text-align: center;
         }
+        h1 { color: var(--primary-color); margin-top: 0; margin-bottom: 8px; }
+        .subtitle { margin-bottom: 24px; color: var(--dark-gray); }
 
-        h1 {
-            color: var(--primary-color);
-            margin-top: 0;
-            margin-bottom: 8px;
+        .log-container {
+            background-color: #fafafa; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 16px; margin-bottom: 24px; max-height: 200px; overflow-y: auto; text-align: left;
         }
+        .log-entry {
+            margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #eee;
+        }
+        .log-entry:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+        .source-text { font-size: 0.9rem; color: var(--dark-gray); margin: 0 0 4px 0; }
+        .translated-text { font-size: 1.1rem; color: var(--text-color); font-weight: 500; margin: 0; }
+        
+        .selectors-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 24px; }
+        @media (min-width: 500px) { .selectors-grid { grid-template-columns: 1fr 1fr; } }
+        
+        .selector-box { display: flex; flex-direction: column; align-items: flex-start; }
+        .selector-box label { font-weight: 500; margin-bottom: 8px; color: var(--dark-gray); }
+        .selector-box select { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid var(--gray); border-radius: 8px; }
+        
+        #controls button { width: 100%; font-size: 1.2rem; font-weight: 500; padding: 14px 20px; margin: 5px 0; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s; }
+        #startButton { background-color: var(--primary-color); color: white; }
+        #startButton:hover { background-color: var(--primary-dark); }
+        #startButton:disabled { background-color: var(--gray); cursor: not-allowed; }
+        #stopButton { background-color: #e6e6e6; color: var(--dark-gray); }
+        #stopButton:hover { background-color: #dcdcdc; }
 
-        .subtitle {
-            margin-bottom: 24px;
-            color: var(--dark-gray);
-        }
-
-        .language-selectors {
-            display: flex;
-            justify-content: space-between;
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .language-box {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-        }
-
-        .language-box label {
-            font-weight: 500;
-            margin-bottom: 8px;
-            color: var(--dark-gray);
-        }
-
-        .language-box select {
-            width: 100%;
-            padding: 12px;
-            font-size: 1rem;
-            border: 1px solid var(--gray);
-            border-radius: 8px;
-            background-color: #fff;
-        }
-
-        #controls button {
-            width: 100%;
-            font-size: 1.2rem;
-            font-weight: 500;
-            padding: 14px 20px;
-            margin: 5px 0;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        #startButton {
-            background-color: var(--primary-color);
-            color: white;
-        }
-        #startButton:hover {
-            background-color: var(--primary-dark);
-        }
-        #startButton:disabled {
-            background-color: var(--gray);
-            cursor: not-allowed;
-        }
-
-        #stopButton {
-            background-color: #e6e6e6;
-            color: var(--dark-gray);
-        }
-        #stopButton:hover {
-            background-color: #dcdcdc;
-        }
-
-        .status-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-top: 24px;
-            min-height: 24px;
-        }
-
-        #indicator {
-            width: 16px;
-            height: 16px;
-            background-color: var(--gray);
-            border-radius: 50%;
-            margin-right: 10px;
-            transition: background-color 0.1s ease-in-out;
-        }
-        #indicator.speaking {
-            background-color: #34A853; /* Google Green */
-        }
+        .status-container { display: flex; align-items: center; justify-content: center; margin-top: 24px; min-height: 24px; }
+        #indicator { width: 16px; height: 16px; background-color: var(--gray); border-radius: 50%; margin-right: 10px; transition: background-color 0.1s ease-in-out; }
+        #indicator.speaking { background-color: #34A853; }
     </style>
 </head>
 <body>
@@ -140,15 +60,22 @@
         <h1>Live Interpreter</h1>
         <p class="subtitle">Select languages and start speaking</p>
 
-        <div class="language-selectors">
-            <div class="language-box">
+        <div id="logContainer" class="log-container"></div>
+
+        <div class="selectors-grid">
+            <div class="selector-box">
                 <label for="sourceLangSelect">From:</label>
                 <select id="sourceLangSelect"></select>
             </div>
-            <div class="language-box">
+            <div class="selector-box">
                 <label for="targetLangSelect">To:</label>
                 <select id="targetLangSelect"></select>
             </div>
+        </div>
+
+        <div class="selector-box" style="margin-bottom: 24px;">
+            <label for="micSelect">Microphone:</label>
+            <select id="micSelect"></select>
         </div>
         
         <div id="controls">
@@ -163,59 +90,67 @@
     </div>
 
     <script>
+        // --- DOM Element References ---
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const statusEl = document.getElementById('status');
         const sourceLangSelect = document.getElementById('sourceLangSelect');
         const targetLangSelect = document.getElementById('targetLangSelect');
         const indicator = document.getElementById('indicator');
+        const micSelect = document.getElementById('micSelect');
+        const logContainer = document.getElementById('logContainer');
 
-        // State variables
+        // --- State Variables ---
         let ws, audioContext, audioWorkletNode, mediaStreamSource;
-        let silenceTimer = null;
-        let isSpeaking = false;
-        let speechStartTime = 0;
-        let audioPlaybackQueue = [];
-        let isPlayingAudio = false;
+        let silenceTimer, isSpeaking, speechStartTime = 0;
+        let audioPlaybackQueue = [], isPlayingAudio = false;
 
-        // --- NEW: Configurable parameters ---
+        // --- Tunable Parameters ---
         const SILENCE_THRESHOLD_MS = 1700;
         const MIN_SPEECH_DURATION_MS = 400;
         const SUPPORTED_LANGUAGES = [
-            { code: 'en-US', name: 'English (US)' },
-            { code: 'en-GB', name: 'English (UK)' },
-            { code: 'de-DE', name: 'German' },
-            { code: 'fr-FR', name: 'French' },
-            { code: 'es-ES', name: 'Spanish' },
-            { code: 'it-IT', name: 'Italian' },
-            { code: 'ja-JP', name: 'Japanese' },
-            { code: 'ko-KR', name: 'Korean' },
-            { code: 'pt-BR', name: 'Portuguese' },
-            { code: 'ru-RU', name: 'Russian' },
+            { code: 'en-US', name: 'English (US)' }, { code: 'en-GB', name: 'English (UK)' },
+            { code: 'de-DE', name: 'German' }, { code: 'fr-FR', name: 'French' },
+            { code: 'es-ES', name: 'Spanish' }, { code: 'it-IT', name: 'Italian' },
+            { code: 'ja-JP', name: 'Japanese' }, { code: 'ko-KR', name: 'Korean' },
+            { code: 'pt-BR', name: 'Portuguese' }, { code: 'ru-RU', name: 'Russian' },
         ];
         
-        // --- NEW: Function to populate language dropdowns ---
+        // --- Setup Functions ---
         function populateLanguageSelects() {
             SUPPORTED_LANGUAGES.forEach(lang => {
-                const sourceOption = new Option(lang.name, lang.code);
-                const targetOption = new Option(lang.name, lang.code);
-                sourceLangSelect.add(sourceOption);
-                targetLangSelect.add(targetOption);
+                sourceLangSelect.add(new Option(lang.name, lang.code));
+                targetLangSelect.add(new Option(lang.name, lang.code));
             });
-            // Set default values
             sourceLangSelect.value = 'de-DE';
             targetLangSelect.value = 'en-US';
         }
 
-        window.addEventListener('load', populateLanguageSelects);
+        async function populateMicList() {
+            try {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
+                micSelect.innerHTML = '';
+                if (audioInputDevices.length === 0) {
+                     micSelect.add(new Option('No microphones found', ''));
+                } else {
+                    audioInputDevices.forEach(device => {
+                        micSelect.add(new Option(device.label || `Microphone ${micSelect.options.length + 1}`, device.deviceId));
+                    });
+                }
+            } catch (err) {
+                console.error("[CLIENT] Error populating mic list:", err);
+                statusEl.textContent = "Error: Could not access microphones.";
+            }
+        }
         
-        function playNextInQueue() { /* ... unchanged ... */ }
-        async function startAudio() { /* ... unchanged ... */ }
-        startButton.onclick = async () => { /* ... modified ... */ };
-        stopButton.onclick = () => { if (ws) ws.close(); };
-        function stopAudio() { /* ... modified ... */ }
-
-        // --- Placing unchanged/modified functions here for a complete file ---
+        window.addEventListener('load', () => {
+            populateLanguageSelects();
+            populateMicList();
+        });
+        
+        // --- Core Logic Functions ---
         function playNextInQueue() {
             if (isPlayingAudio || audioPlaybackQueue.length === 0) return;
             isPlayingAudio = true;
@@ -233,8 +168,7 @@
                 audioContext = new AudioContext({ sampleRate: 16000 });
                 await audioContext.audioWorklet.addModule('audio-processor.js');
                 
-                // This now uses the source language dropdown value, but we don't need it for getUserMedia
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: micSelect.value } } });
                 mediaStreamSource = audioContext.createMediaStreamSource(stream);
                 audioWorkletNode = new AudioWorkletNode(audioContext, 'audio-processor');
 
@@ -274,38 +208,57 @@
                 statusEl.textContent = 'Listening... Speak now!';
             } catch (error) {
                 console.error("[CLIENT] Error during audio setup:", error);
-                statusEl.textContent = `Error: Could not start microphone.`;
+                statusEl.textContent = `Error: Could not start the selected microphone.`;
+                stopAudio(); // Stop if there's an error
             }
         }
 
-        startButton.onclick = async () => {
-            statusEl.textContent = 'Connecting...';
-            // --- DYNAMIC WEBSOCKET URL ---
-            // Determine the protocol: 'wss:' for 'https:' pages, otherwise 'ws:'
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            // Get the host (hostname and port) from the current page's URL
-            const wsUrl = `${wsProtocol}//${window.location.host}`;
+        function stopAudio() {
+            if (ws && ws.readyState !== WebSocket.CLOSED) ws.close();
+            audioPlaybackQueue = [];
+            isPlayingAudio = false;
+            speechStartTime = 0;
+            if (audioContext && audioContext.state !== 'closed') audioContext.close();
+            if (mediaStreamSource) mediaStreamSource.mediaStream.getTracks().forEach(track => track.stop());
+            indicator.classList.remove('speaking');
+            if (silenceTimer) clearTimeout(silenceTimer);
+            isSpeaking = false;
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            sourceLangSelect.disabled = false;
+            targetLangSelect.disabled = false;
+            micSelect.disabled = false;
+            statusEl.textContent = 'Idle';
+        }
 
-            console.log(`[CLIENT] Connecting to WebSocket at: ${wsUrl}`);
+        // --- Event Handlers ---
+        startButton.onclick = async () => {
+            logContainer.innerHTML = '';
+            statusEl.textContent = 'Connecting to server...';
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}`;
             ws = new WebSocket(wsUrl);
-            
+
             ws.onopen = () => {
                 statusEl.textContent = 'Handshaking...';
-                // --- MODIFIED: Send selected languages during handshake ---
                 ws.send(JSON.stringify({
                     event: 'client-ready',
                     sourceLanguage: sourceLangSelect.value,
                     targetLanguage: targetLangSelect.value
                 }));
             };
+
             ws.onmessage = async (event) => {
                 const msg = JSON.parse(event.data);
                 if (msg.event === 'server-ready') {
                     startButton.disabled = true;
                     stopButton.disabled = false;
-                    sourceLangSelect.disabled = true; // Disable controls while running
+                    sourceLangSelect.disabled = true;
                     targetLangSelect.disabled = true;
+                    micSelect.disabled = true;
                     startAudio();
+                } else if (msg.event === 'transcript-pair') {
+                    addLogEntry(msg.sourceText, msg.translatedText);
                 } else if (msg.event === 'audioContent') {
                     const audioContent = atob(msg.data);
                     const audioBytes = new Uint8Array(audioContent.length);
@@ -317,23 +270,24 @@
                 }
             };
             ws.onclose = () => stopAudio();
-            ws.onerror = (error) => stopAudio();
+            ws.onerror = () => stopAudio();
         };
 
-        function stopAudio() {
-            audioPlaybackQueue = [];
-            isPlayingAudio = false;
-            speechStartTime = 0;
-            if (audioContext && audioContext.state !== 'closed') audioContext.close();
-            if (mediaStreamSource) mediaStreamSource.mediaStream.getTracks().forEach(track => track.stop());
-            indicator.classList.remove('speaking');
-            if (silenceTimer) clearTimeout(silenceTimer);
-            isSpeaking = false;
-            startButton.disabled = false;
-            stopButton.disabled = true;
-            sourceLangSelect.disabled = false; // Re-enable controls
-            targetLangSelect.disabled = false;
-            statusEl.textContent = 'Idle';
+        stopButton.onclick = () => { if (ws) ws.close(); };
+
+        function addLogEntry(sourceText, translatedText) {
+            const entryDiv = document.createElement('div');
+            entryDiv.className = 'log-entry';
+            const sourceP = document.createElement('p');
+            sourceP.className = 'source-text';
+            sourceP.textContent = sourceText;
+            const translatedP = document.createElement('p');
+            translatedP.className = 'translated-text';
+            translatedP.textContent = translatedText;
+            entryDiv.appendChild(sourceP);
+            entryDiv.appendChild(translatedP);
+            logContainer.appendChild(entryDiv);
+            logContainer.scrollTop = logContainer.scrollHeight;
         }
     </script>
 </body>
