@@ -1,0 +1,19 @@
+{
+  "name": "live-interpreter",
+  "version": "1.0.0",
+  "main": "audio-processor.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google-cloud/speech": "^7.1.0",
+    "@google-cloud/text-to-speech": "^6.1.0",
+    "@google-cloud/translate": "^9.1.0",
+    "ws": "^8.18.2"
+  }
+}

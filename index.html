@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Live Interpreter</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; max-width: 600px; margin: 0 auto; }
+        .indicator-container { display: flex; align-items: center; margin-bottom: 15px; }
+        #indicator { width: 20px; height: 20px; background-color: #ccc; border-radius: 50%; margin-right: 10px; transition: background-color 0.1s ease-in-out; }
+        #indicator.speaking { background-color: #4CAF50; }
+        .mic-selector { margin: 15px 0; }
+        .mic-selector label { font-weight: bold; margin-right: 10px; }
+        .mic-selector select { font-size: 1rem; padding: 5px; }
+        #controls button { font-size: 1.2rem; padding: 10px 20px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Live Interpreter</h1>
+    <p>Speak in German, hear it in English.</p>
+    <div class="indicator-container">
+        <div id="indicator"></div>
+        <p><strong>Status:</strong> <span id="status">Idle</span></p>
+    </div>
+    <div class="mic-selector">
+        <label for="micSelect">Choose Microphone:</label>
+        <select id="micSelect"></select>
+    </div>
+    <div id="controls">
+        <button id="startButton">Start Interpretation</button>
+        <button id="stopButton" disabled>Stop Interpretation</button>
+    </div>
+
+    <script>
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const statusEl = document.getElementById('status');
+        const micSelect = document.getElementById('micSelect');
+        const indicator = document.getElementById('indicator');
+        let ws, audioContext, audioWorkletNode, mediaStreamSource;
+        
+        // --- NEW: Tunable parameters for silence detection ---
+        let silenceTimer = null;
+        let isSpeaking = false;
+        let speechStartTime = 0; // To track when speech starts
+        const SILENCE_THRESHOLD_MS = 1700; // Increased pause duration to 1.7 seconds
+        const MIN_SPEECH_DURATION_MS = 400; // Minimum speech time to be considered a valid sentence (in ms)
+
+        let audioPlaybackQueue = [];
+        let isPlayingAudio = false;
+
+        async function populateMicList() {
+            try {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
+                micSelect.innerHTML = '';
+                if (audioInputDevices.length === 0) {
+                     micSelect.add(new Option('No microphones found', ''));
+                } else {
+                    audioInputDevices.forEach(device => {
+                        micSelect.add(new Option(device.label || `Microphone ${micSelect.options.length + 1}`, device.deviceId));
+                    });
+                }
+            } catch (err) {
+                console.error("[CLIENT] Error populating mic list:", err);
+            }
+        }
+        
+        window.addEventListener('load', populateMicList);
+        
+        function playNextInQueue() { 
+            if (isPlayingAudio || audioPlaybackQueue.length === 0) return;
+            isPlayingAudio = true;
+
+            const audioBuffer = audioPlaybackQueue.shift();
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            
+            source.onended = () => {
+                isPlayingAudio = false;
+                playNextInQueue();
+            };
+
+            source.start();
+        }
+
+        async function startAudio() {
+            try {
+                statusEl.textContent = 'Starting microphone...';
+                audioContext = new AudioContext({ sampleRate: 16000 });
+                await audioContext.audioWorklet.addModule('audio-processor.js');
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: micSelect.value } } });
+                mediaStreamSource = audioContext.createMediaStreamSource(stream);
+                audioWorkletNode = new AudioWorkletNode(audioContext, 'audio-processor');
+
+                audioWorkletNode.port.onmessage = (event) => {
+                    const { audio, volume } = event.data;
+                    
+                    // Audio data is always sent to the server to be buffered
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const base64data = reader.result.split(',')[1];
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ event: 'audio', data: base64data }));
+                        }
+                    };
+                    reader.readAsDataURL(new Blob([audio]));
+
+                    // --- NEW: Smarter Silence Detection Logic ---
+                    const speakingThreshold = 0.02; 
+                    if (volume > speakingThreshold) {
+                        // If we were not speaking before, this is the start of a new utterance.
+                        if (!isSpeaking) {
+                            isSpeaking = true;
+                            speechStartTime = Date.now(); // Record the start time
+                            console.log('[CLIENT] Speech started.');
+                        }
+                        indicator.classList.add('speaking');
+                        if (silenceTimer) clearTimeout(silenceTimer); // Clear any pending silence timer
+                    } else if (isSpeaking) {
+                        // We were speaking, but now there's silence.
+                        // Start a timer. If it completes, the utterance is over.
+                        silenceTimer = setTimeout(() => {
+                            const speechDuration = Date.now() - speechStartTime;
+                            console.log(`[CLIENT] Silence detected. Speech duration: ${speechDuration}ms`);
+                            
+                            // Only send if the speech was long enough to be meaningful
+                            if (speechDuration > MIN_SPEECH_DURATION_MS) {
+                                console.log('[CLIENT] Sending end-of-speech event.');
+                                if (ws && ws.readyState === WebSocket.OPEN) {
+                                    ws.send(JSON.stringify({ event: 'end-of-speech' }));
+                                }
+                            } else {
+                                console.log('[CLIENT] Speech was too short, ignoring.');
+                            }
+                            
+                            // Reset for the next utterance
+                            isSpeaking = false; 
+                            indicator.classList.remove('speaking');
+                        }, SILENCE_THRESHOLD_MS);
+                    }
+                };
+                mediaStreamSource.connect(audioWorkletNode).connect(audioContext.destination);
+                statusEl.textContent = 'Listening... Speak now!';
+            } catch (error) {
+                console.error("[CLIENT] Error during audio setup:", error);
+            }
+        }
+
+        startButton.onclick = async () => { /* ... unchanged ... */ };
+        stopButton.onclick = () => { if (ws) ws.close(); };
+        
+        // Minor change to reset speechStartTime on stop
+        function stopAudio() {
+            // ... all previous logic ...
+            speechStartTime = 0; // Reset speech start time
+        }
+
+        // --- Placing the unchanged functions here for a complete file ---
+        function playNextInQueue() {
+            if (isPlayingAudio || audioPlaybackQueue.length === 0) return;
+            isPlayingAudio = true;
+            const audioBuffer = audioPlaybackQueue.shift();
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            source.onended = () => { isPlayingAudio = false; playNextInQueue(); };
+            source.start();
+        }
+        startButton.onclick = async () => {
+            statusEl.textContent = 'Connecting to server...';
+            ws = new WebSocket('ws://localhost:8080');
+            ws.onopen = () => {
+                statusEl.textContent = 'Handshaking...';
+                ws.send(JSON.stringify({ event: 'client-ready' }));
+            };
+            ws.onmessage = async (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.event === 'server-ready') {
+                    startButton.disabled = true;
+                    stopButton.disabled = false;
+                    micSelect.disabled = true;
+                    startAudio();
+                } else if (msg.event === 'audioContent') {
+                    const audioContent = atob(msg.data);
+                    const audioBytes = new Uint8Array(audioContent.length);
+                    for (let i = 0; i < audioContent.length; i++) {
+                        audioBytes[i] = audioContent.charCodeAt(i);
+                    }
+                    if (!audioContext || audioContext.state === 'closed') return;
+                    const audioBuffer = await audioContext.decodeAudioData(audioBytes.buffer);
+                    audioPlaybackQueue.push(audioBuffer);
+
+                    playNextInQueue();
+                }
+            };
+            ws.onclose = () => stopAudio();
+            ws.onerror = (error) => stopAudio();
+        };
+        function stopAudio() {
+            audioPlaybackQueue = [];
+            isPlayingAudio = false;
+            speechStartTime = 0; // Reset speech start time
+            if (audioContext && audioContext.state !== 'closed') audioContext.close();
+            if (mediaStreamSource) mediaStreamSource.mediaStream.getTracks().forEach(track => track.stop());
+            indicator.classList.remove('speaking');
+            if (silenceTimer) clearTimeout(silenceTimer);
+            isSpeaking = false;
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            micSelect.disabled = false;
+            statusEl.textContent = 'Idle';
+        }
+    </script>
+</body>
+</html>
