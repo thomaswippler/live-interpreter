@@ -1,4 +1,4 @@
-// server.js --- FINAL POLISHED VERSION
+// server.js --- V2 with Dynamic Languages
 
 const http = require('http');
 const fs = require('fs');
@@ -9,9 +9,7 @@ const { TranslationServiceClient } = require('@google-cloud/translate');
 const { TextToSpeechClient } = require('@google-cloud/text-to-speech');
 
 const PORT = 8080;
-const SOURCE_LANGUAGE = 'de-DE';
-const TARGET_LANGUAGE = 'en-US';
-const PROJECT_ID = 'default-450413';
+const PROJECT_ID = 'default-450413'; // Your Project ID remains constant
 const API_SAMPLE_RATE = 16000;
 
 const speechClient = new SpeechClient();
@@ -19,6 +17,7 @@ const translateClient = new TranslationServiceClient();
 const ttsClient = new TextToSpeechClient();
 
 const server = http.createServer((req, res) => {
+    // This part is unchanged...
     let filePath;
     if (req.url === '/' || req.url === '/index.html') filePath = path.join(__dirname, 'index.html');
     else if (req.url === '/audio-processor.js') filePath = path.join(__dirname, 'audio-processor.js');
@@ -40,67 +39,74 @@ wss.on('connection', (ws) => {
 
     let audioBuffer = [];
     let isProcessing = false;
+    // --- NEW: Language variables are now per-connection ---
+    let sourceLanguage = 'de-DE'; // Default
+    let targetLanguage = 'en-US'; // Default
 
     const processAudioBatch = async () => {
-        if (isProcessing) return; // A process is already running, ignore this trigger
-
-        if (audioBuffer.length < 20) { // Ignore very short audio fragments
-            audioBuffer = [];
+        if (isProcessing || audioBuffer.length < 1) {
+            if(isProcessing) console.log('[SERVER-BATCH] Already processing a batch.');
+            audioBuffer = []; // Clear buffer if it's too short
             return;
         }
 
-        isProcessing = true; // Acquire the lock
-        console.log(`[SERVER-BATCH] LOCK ACQUIRED. Processing audio batch of ${audioBuffer.length} chunks.`);
-
+        isProcessing = true;
         const completeBuffer = Buffer.concat(audioBuffer);
         audioBuffer = [];
 
         try {
+            // --- MODIFIED: Use the connection-specific language variables ---
             const request = {
-                config: { encoding: 'LINEAR16', sampleRateHertz: API_SAMPLE_RATE, languageCode: SOURCE_LANGUAGE },
+                config: {
+                    encoding: 'LINEAR16',
+                    sampleRateHertz: API_SAMPLE_RATE,
+                    languageCode: sourceLanguage, // Use dynamic variable
+                },
                 audio: { content: completeBuffer.toString('base64') },
             };
             
-            console.log('[SERVER-BATCH] Sending audio batch to Google...');
             const [response] = await speechClient.recognize(request);
             const transcription = response.results.map(result => result.alternatives[0].transcript).join('\n');
 
             if (transcription) {
-                console.log(`[SERVER] Transcription: "${transcription}"`);
+                console.log(`[SERVER] Transcription (${sourceLanguage}): "${transcription}"`);
                 
                 const [translateResponse] = await translateClient.translateText({
                     parent: `projects/${PROJECT_ID}/locations/global`,
                     contents: [transcription], mimeType: 'text/plain',
-                    sourceLanguageCode: SOURCE_LANGUAGE.split('-')[0], targetLanguageCode: TARGET_LANGUAGE.split('-')[0],
+                    sourceLanguageCode: sourceLanguage.split('-')[0], // Use dynamic variable
+                    targetLanguageCode: targetLanguage.split('-')[0], // Use dynamic variable
                 });
                 const translation = translateResponse.translations[0].translatedText;
-                console.log(`[SERVER] Translation: "${translation}"`);
+                console.log(`[SERVER] Translation (${targetLanguage}): "${translation}"`);
 
                 const [ttsResponse] = await ttsClient.synthesizeSpeech({
-                    input: { text: translation }, voice: { languageCode: TARGET_LANGUAGE, ssmlGender: 'NEUTRAL' },
+                    input: { text: translation },
+                    voice: { languageCode: targetLanguage, ssmlGender: 'NEUTRAL' }, // Use dynamic variable
                     audioConfig: { audioEncoding: 'MP3' },
                 });
 
                 ws.send(JSON.stringify({ event: 'audioContent', data: ttsResponse.audioContent.toString('base64') }));
-            } else {
-                console.log('[SERVER] API returned no transcription for this batch.');
             }
         } catch (err) {
             console.error('--- [SERVER] API BATCH PROCESSING ERROR ---:', err);
         } finally {
-            isProcessing = false; // Release the lock
-            console.log('[SERVER-BATCH] LOCK RELEASED.');
+            isProcessing = false;
         }
     };
 
     ws.on('message', (message) => {
         const msg = JSON.parse(message);
+        
         if (msg.event === 'client-ready') {
+            // --- MODIFIED: Receive and store languages for this session ---
+            sourceLanguage = msg.sourceLanguage;
+            targetLanguage = msg.targetLanguage;
+            console.log(`[SERVER] Client ready. Source: ${sourceLanguage}, Target: ${targetLanguage}`);
             ws.send(JSON.stringify({ event: 'server-ready' }));
         } else if (msg.event === 'audio') {
             audioBuffer.push(Buffer.from(msg.data, 'base64'));
         } else if (msg.event === 'end-of-speech') {
-            console.log('[SERVER] End-of-speech event received.');
             processAudioBatch();
         }
     });
@@ -109,6 +115,7 @@ wss.on('connection', (ws) => {
         console.log('[SERVER] Client disconnected.');
         if (audioBuffer.length > 0) processAudioBatch();
     });
+
     ws.on('error', (err) => console.error('[SERVER] WebSocket Error:', err));
 });
 

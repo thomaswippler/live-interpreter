@@ -2,162 +2,220 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Live Interpreter</title>
+    <title>Live Interpreter V2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; max-width: 600px; margin: 0 auto; }
-        .indicator-container { display: flex; align-items: center; margin-bottom: 15px; }
-        #indicator { width: 20px; height: 20px; background-color: #ccc; border-radius: 50%; margin-right: 10px; transition: background-color 0.1s ease-in-out; }
-        #indicator.speaking { background-color: #4CAF50; }
-        .mic-selector { margin: 15px 0; }
-        .mic-selector label { font-weight: bold; margin-right: 10px; }
-        .mic-selector select { font-size: 1rem; padding: 5px; }
-        #controls button { font-size: 1.2rem; padding: 10px 20px; margin: 5px; }
+        :root {
+            --primary-color: #4285F4; /* Google Blue */
+            --primary-dark: #357ae8;
+            --light-gray: #f1f3f4;
+            --gray: #bdc1c6;
+            --dark-gray: #5f6368;
+            --text-color: #202124;
+            --card-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--light-gray);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .interpreter-container {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            padding: 24px 32px;
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            margin-bottom: 24px;
+            color: var(--dark-gray);
+        }
+
+        .language-selectors {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .language-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .language-box label {
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--dark-gray);
+        }
+
+        .language-box select {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            border: 1px solid var(--gray);
+            border-radius: 8px;
+            background-color: #fff;
+        }
+
+        #controls button {
+            width: 100%;
+            font-size: 1.2rem;
+            font-weight: 500;
+            padding: 14px 20px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        #startButton {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        #startButton:hover {
+            background-color: var(--primary-dark);
+        }
+        #startButton:disabled {
+            background-color: var(--gray);
+            cursor: not-allowed;
+        }
+
+        #stopButton {
+            background-color: #e6e6e6;
+            color: var(--dark-gray);
+        }
+        #stopButton:hover {
+            background-color: #dcdcdc;
+        }
+
+        .status-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 24px;
+            min-height: 24px;
+        }
+
+        #indicator {
+            width: 16px;
+            height: 16px;
+            background-color: var(--gray);
+            border-radius: 50%;
+            margin-right: 10px;
+            transition: background-color 0.1s ease-in-out;
+        }
+        #indicator.speaking {
+            background-color: #34A853; /* Google Green */
+        }
     </style>
 </head>
 <body>
-    <h1>Live Interpreter</h1>
-    <p>Speak in German, hear it in English.</p>
-    <div class="indicator-container">
-        <div id="indicator"></div>
-        <p><strong>Status:</strong> <span id="status">Idle</span></p>
-    </div>
-    <div class="mic-selector">
-        <label for="micSelect">Choose Microphone:</label>
-        <select id="micSelect"></select>
-    </div>
-    <div id="controls">
-        <button id="startButton">Start Interpretation</button>
-        <button id="stopButton" disabled>Stop Interpretation</button>
+    <div class="interpreter-container">
+        <h1>Live Interpreter</h1>
+        <p class="subtitle">Select languages and start speaking</p>
+
+        <div class="language-selectors">
+            <div class="language-box">
+                <label for="sourceLangSelect">From:</label>
+                <select id="sourceLangSelect"></select>
+            </div>
+            <div class="language-box">
+                <label for="targetLangSelect">To:</label>
+                <select id="targetLangSelect"></select>
+            </div>
+        </div>
+        
+        <div id="controls">
+            <button id="startButton">Start Interpretation</button>
+            <button id="stopButton" disabled>Stop Interpretation</button>
+        </div>
+
+        <div class="status-container">
+            <div id="indicator"></div>
+            <p><strong>Status:</strong> <span id="status">Idle</span></p>
+        </div>
     </div>
 
     <script>
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const statusEl = document.getElementById('status');
-        const micSelect = document.getElementById('micSelect');
+        const sourceLangSelect = document.getElementById('sourceLangSelect');
+        const targetLangSelect = document.getElementById('targetLangSelect');
         const indicator = document.getElementById('indicator');
+
+        // State variables
         let ws, audioContext, audioWorkletNode, mediaStreamSource;
-        
-        // --- NEW: Tunable parameters for silence detection ---
         let silenceTimer = null;
         let isSpeaking = false;
-        let speechStartTime = 0; // To track when speech starts
-        const SILENCE_THRESHOLD_MS = 1700; // Increased pause duration to 1.7 seconds
-        const MIN_SPEECH_DURATION_MS = 400; // Minimum speech time to be considered a valid sentence (in ms)
-
+        let speechStartTime = 0;
         let audioPlaybackQueue = [];
         let isPlayingAudio = false;
 
-        async function populateMicList() {
-            try {
-                await navigator.mediaDevices.getUserMedia({ audio: true });
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
-                micSelect.innerHTML = '';
-                if (audioInputDevices.length === 0) {
-                     micSelect.add(new Option('No microphones found', ''));
-                } else {
-                    audioInputDevices.forEach(device => {
-                        micSelect.add(new Option(device.label || `Microphone ${micSelect.options.length + 1}`, device.deviceId));
-                    });
-                }
-            } catch (err) {
-                console.error("[CLIENT] Error populating mic list:", err);
-            }
-        }
+        // --- NEW: Configurable parameters ---
+        const SILENCE_THRESHOLD_MS = 1700;
+        const MIN_SPEECH_DURATION_MS = 400;
+        const SUPPORTED_LANGUAGES = [
+            { code: 'en-US', name: 'English (US)' },
+            { code: 'en-GB', name: 'English (UK)' },
+            { code: 'de-DE', name: 'German' },
+            { code: 'fr-FR', name: 'French' },
+            { code: 'es-ES', name: 'Spanish' },
+            { code: 'it-IT', name: 'Italian' },
+            { code: 'ja-JP', name: 'Japanese' },
+            { code: 'ko-KR', name: 'Korean' },
+            { code: 'pt-BR', name: 'Portuguese' },
+            { code: 'ru-RU', name: 'Russian' },
+        ];
         
-        window.addEventListener('load', populateMicList);
+        // --- NEW: Function to populate language dropdowns ---
+        function populateLanguageSelects() {
+            SUPPORTED_LANGUAGES.forEach(lang => {
+                const sourceOption = new Option(lang.name, lang.code);
+                const targetOption = new Option(lang.name, lang.code);
+                sourceLangSelect.add(sourceOption);
+                targetLangSelect.add(targetOption);
+            });
+            // Set default values
+            sourceLangSelect.value = 'de-DE';
+            targetLangSelect.value = 'en-US';
+        }
+
+        window.addEventListener('load', populateLanguageSelects);
         
-        function playNextInQueue() { 
-            if (isPlayingAudio || audioPlaybackQueue.length === 0) return;
-            isPlayingAudio = true;
-
-            const audioBuffer = audioPlaybackQueue.shift();
-            const source = audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioContext.destination);
-            
-            source.onended = () => {
-                isPlayingAudio = false;
-                playNextInQueue();
-            };
-
-            source.start();
-        }
-
-        async function startAudio() {
-            try {
-                statusEl.textContent = 'Starting microphone...';
-                audioContext = new AudioContext({ sampleRate: 16000 });
-                await audioContext.audioWorklet.addModule('audio-processor.js');
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: micSelect.value } } });
-                mediaStreamSource = audioContext.createMediaStreamSource(stream);
-                audioWorkletNode = new AudioWorkletNode(audioContext, 'audio-processor');
-
-                audioWorkletNode.port.onmessage = (event) => {
-                    const { audio, volume } = event.data;
-                    
-                    // Audio data is always sent to the server to be buffered
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        const base64data = reader.result.split(',')[1];
-                        if (ws && ws.readyState === WebSocket.OPEN) {
-                            ws.send(JSON.stringify({ event: 'audio', data: base64data }));
-                        }
-                    };
-                    reader.readAsDataURL(new Blob([audio]));
-
-                    // --- NEW: Smarter Silence Detection Logic ---
-                    const speakingThreshold = 0.02; 
-                    if (volume > speakingThreshold) {
-                        // If we were not speaking before, this is the start of a new utterance.
-                        if (!isSpeaking) {
-                            isSpeaking = true;
-                            speechStartTime = Date.now(); // Record the start time
-                            console.log('[CLIENT] Speech started.');
-                        }
-                        indicator.classList.add('speaking');
-                        if (silenceTimer) clearTimeout(silenceTimer); // Clear any pending silence timer
-                    } else if (isSpeaking) {
-                        // We were speaking, but now there's silence.
-                        // Start a timer. If it completes, the utterance is over.
-                        silenceTimer = setTimeout(() => {
-                            const speechDuration = Date.now() - speechStartTime;
-                            console.log(`[CLIENT] Silence detected. Speech duration: ${speechDuration}ms`);
-                            
-                            // Only send if the speech was long enough to be meaningful
-                            if (speechDuration > MIN_SPEECH_DURATION_MS) {
-                                console.log('[CLIENT] Sending end-of-speech event.');
-                                if (ws && ws.readyState === WebSocket.OPEN) {
-                                    ws.send(JSON.stringify({ event: 'end-of-speech' }));
-                                }
-                            } else {
-                                console.log('[CLIENT] Speech was too short, ignoring.');
-                            }
-                            
-                            // Reset for the next utterance
-                            isSpeaking = false; 
-                            indicator.classList.remove('speaking');
-                        }, SILENCE_THRESHOLD_MS);
-                    }
-                };
-                mediaStreamSource.connect(audioWorkletNode).connect(audioContext.destination);
-                statusEl.textContent = 'Listening... Speak now!';
-            } catch (error) {
-                console.error("[CLIENT] Error during audio setup:", error);
-            }
-        }
-
-        startButton.onclick = async () => { /* ... unchanged ... */ };
+        function playNextInQueue() { /* ... unchanged ... */ }
+        async function startAudio() { /* ... unchanged ... */ }
+        startButton.onclick = async () => { /* ... modified ... */ };
         stopButton.onclick = () => { if (ws) ws.close(); };
-        
-        // Minor change to reset speechStartTime on stop
-        function stopAudio() {
-            // ... all previous logic ...
-            speechStartTime = 0; // Reset speech start time
-        }
+        function stopAudio() { /* ... modified ... */ }
 
-        // --- Placing the unchanged functions here for a complete file ---
+        // --- Placing unchanged/modified functions here for a complete file ---
         function playNextInQueue() {
             if (isPlayingAudio || audioPlaybackQueue.length === 0) return;
             isPlayingAudio = true;
@@ -168,40 +226,104 @@
             source.onended = () => { isPlayingAudio = false; playNextInQueue(); };
             source.start();
         }
+
+        async function startAudio() {
+            try {
+                statusEl.textContent = 'Starting microphone...';
+                audioContext = new AudioContext({ sampleRate: 16000 });
+                await audioContext.audioWorklet.addModule('audio-processor.js');
+                
+                // This now uses the source language dropdown value, but we don't need it for getUserMedia
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaStreamSource = audioContext.createMediaStreamSource(stream);
+                audioWorkletNode = new AudioWorkletNode(audioContext, 'audio-processor');
+
+                audioWorkletNode.port.onmessage = (event) => {
+                    const { audio, volume } = event.data;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const base64data = reader.result.split(',')[1];
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ event: 'audio', data: base64data }));
+                        }
+                    };
+                    reader.readAsDataURL(new Blob([audio]));
+
+                    const speakingThreshold = 0.02; 
+                    if (volume > speakingThreshold) {
+                        if (!isSpeaking) {
+                            isSpeaking = true;
+                            speechStartTime = Date.now();
+                        }
+                        indicator.classList.add('speaking');
+                        if (silenceTimer) clearTimeout(silenceTimer);
+                    } else if (isSpeaking) {
+                        indicator.classList.remove('speaking');
+                        silenceTimer = setTimeout(() => {
+                            const speechDuration = Date.now() - speechStartTime;
+                            if (speechDuration > MIN_SPEECH_DURATION_MS) {
+                                if (ws && ws.readyState === WebSocket.OPEN) {
+                                    ws.send(JSON.stringify({ event: 'end-of-speech' }));
+                                }
+                            }
+                            isSpeaking = false; 
+                        }, SILENCE_THRESHOLD_MS);
+                    }
+                };
+                mediaStreamSource.connect(audioWorkletNode).connect(audioContext.destination);
+                statusEl.textContent = 'Listening... Speak now!';
+            } catch (error) {
+                console.error("[CLIENT] Error during audio setup:", error);
+                statusEl.textContent = `Error: Could not start microphone.`;
+            }
+        }
+
         startButton.onclick = async () => {
-            statusEl.textContent = 'Connecting to server...';
-            ws = new WebSocket('ws://localhost:8080');
+            statusEl.textContent = 'Connecting...';
+            // --- DYNAMIC WEBSOCKET URL ---
+            // Determine the protocol: 'wss:' for 'https:' pages, otherwise 'ws:'
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            // Get the host (hostname and port) from the current page's URL
+            const wsUrl = `${wsProtocol}//${window.location.host}`;
+
+            console.log(`[CLIENT] Connecting to WebSocket at: ${wsUrl}`);
+            ws = new WebSocket(wsUrl);
+            
             ws.onopen = () => {
                 statusEl.textContent = 'Handshaking...';
-                ws.send(JSON.stringify({ event: 'client-ready' }));
+                // --- MODIFIED: Send selected languages during handshake ---
+                ws.send(JSON.stringify({
+                    event: 'client-ready',
+                    sourceLanguage: sourceLangSelect.value,
+                    targetLanguage: targetLangSelect.value
+                }));
             };
             ws.onmessage = async (event) => {
                 const msg = JSON.parse(event.data);
                 if (msg.event === 'server-ready') {
                     startButton.disabled = true;
                     stopButton.disabled = false;
-                    micSelect.disabled = true;
+                    sourceLangSelect.disabled = true; // Disable controls while running
+                    targetLangSelect.disabled = true;
                     startAudio();
                 } else if (msg.event === 'audioContent') {
                     const audioContent = atob(msg.data);
                     const audioBytes = new Uint8Array(audioContent.length);
-                    for (let i = 0; i < audioContent.length; i++) {
-                        audioBytes[i] = audioContent.charCodeAt(i);
-                    }
+                    for (let i = 0; i < audioContent.length; i++) audioBytes[i] = audioContent.charCodeAt(i);
                     if (!audioContext || audioContext.state === 'closed') return;
                     const audioBuffer = await audioContext.decodeAudioData(audioBytes.buffer);
                     audioPlaybackQueue.push(audioBuffer);
-
                     playNextInQueue();
                 }
             };
             ws.onclose = () => stopAudio();
             ws.onerror = (error) => stopAudio();
         };
+
         function stopAudio() {
             audioPlaybackQueue = [];
             isPlayingAudio = false;
-            speechStartTime = 0; // Reset speech start time
+            speechStartTime = 0;
             if (audioContext && audioContext.state !== 'closed') audioContext.close();
             if (mediaStreamSource) mediaStreamSource.mediaStream.getTracks().forEach(track => track.stop());
             indicator.classList.remove('speaking');
@@ -209,7 +331,8 @@
             isSpeaking = false;
             startButton.disabled = false;
             stopButton.disabled = true;
-            micSelect.disabled = false;
+            sourceLangSelect.disabled = false; // Re-enable controls
+            targetLangSelect.disabled = false;
             statusEl.textContent = 'Idle';
         }
     </script>
