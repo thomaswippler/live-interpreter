@@ -1,4 +1,3 @@
-// audio-processor.js
 class AudioProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -10,7 +9,6 @@ class AudioProcessor extends AudioWorkletProcessor {
     const input = inputs[0];
     const channel = input[0];
 
-    // --- NEW: Calculate Volume (Root Mean Square) ---
     let sum = 0;
     for (let i = 0; i < channel.length; i++) {
         sum += channel[i] * channel[i];
@@ -20,13 +18,11 @@ class AudioProcessor extends AudioWorkletProcessor {
     this.volume = Math.max(rms, this.volume * this.smoothingFactor);
 
 
-    // --- Convert audio to Int16 as before ---
     const int16Buffer = new Int16Array(channel.length);
     for (let i = 0; i < channel.length; i++) {
       int16Buffer[i] = Math.max(-1, Math.min(1, channel[i])) * 32767;
     }
 
-    // --- NEW: Send both the audio buffer and the calculated volume ---
     this.port.postMessage({
         audio: int16Buffer.buffer,
         volume: this.volume 

@@ -1,5 +1,3 @@
-// server.js --- V2.1 with Text Log Messaging
-
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -8,8 +6,8 @@ const { SpeechClient } = require('@google-cloud/speech');
 const { TranslationServiceClient } = require('@google-cloud/translate');
 const { TextToSpeechClient } = require('@google-cloud/text-to-speech');
 
-const PORT = 8080;
-const PROJECT_ID = 'default-450413';
+const PORT = process.env.PORT || 8080;
+const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT;
 const API_SAMPLE_RATE = 16000;
 
 const speechClient = new SpeechClient();
@@ -73,7 +71,6 @@ wss.on('connection', (ws) => {
                 const translation = translateResponse.translations[0].translatedText;
                 console.log(`[SERVER] Translation (${targetLanguage}): "${translation}"`);
 
-                // --- NEW: Send the text pair back to the client ---
                 ws.send(JSON.stringify({
                     event: 'transcript-pair',
                     sourceText: transcription,
